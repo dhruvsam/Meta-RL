@@ -100,8 +100,8 @@ class MetaLearner():
         self.exploit_action = tf.multinomial(self.exploit_action_logits,1)
         self.exploit_action = tf.squeeze(self.exploit_action, axis=1)
         self.exploit_logprob = -tf.nn.sparse_softmax_cross_entropy_with_logits(logits = self.exploit_action_logits, labels = self.action_placeholder_exploit)
-        self.exploit_policy_loss = -tf.reduce_sum(self.exploit_logprob * self.advantage_placeholder_exploit)
-        self.loss_grads_exploit = self.exploit_logprob * self.advantage_placeholder_exploit
+
+        #self.loss_grads_exploit = self.exploit_logprob * self.advantage_placeholder_exploit
 
     def NNEncoder(self, scope = "NNEncoder"):
         self.Z = build_mlp(self.encoder_input_placeholder,self.latent_size,scope = scope,n_layers=3,size = 60,output_activation=None)
@@ -184,8 +184,7 @@ class MetaLearner():
                                 "reward" : np.array(rewards),
                                 "action" : np.array(actions)}
             paths.append(path)
-            if(not done):
-                num = num + 1
+
         #print("exploit success: ", num)
         return paths, episode_rewards
 
@@ -220,9 +219,9 @@ class MetaLearner():
 
     def addBaseline(self):
         self.baseline = build_mlp(self.observation_placeholder_explore,1,scope = "baseline",n_layers=self.num_layers, size = self.layers_size,output_activation=None)
-        baseline_loss = tf.losses.mean_squared_error(self.baseline_target_placeholder,self.baseline,scope = "baseline")
+        self.baseline_loss = tf.losses.mean_squared_error(self.baseline_target_placeholder,self.baseline,scope = "baseline")
         baseline_adam_optimizer =  tf.train.AdamOptimizer(learning_rate = self.lr)
-        self.update_baseline_op = baseline_adam_optimizer.minimize(baseline_loss)
+        self.update_baseline_op = baseline_adam_optimizer.minimize(self.baseline_loss)
 
     def calculate_advantage(self,returns, observations):
         if (self.use_baseline):
@@ -233,10 +232,7 @@ class MetaLearner():
             adv = returns
         return adv
 
-    def update_baseline(self,returns, observations):
-        self.sess.run(update_baseline_op, feed_dict={
-                    input_placeholder : observations,
-                    self.baseline_target_placeholder : returns})
+
 
     def ConstructGraph(self):
         tf.reset_default_graph()
@@ -262,7 +258,7 @@ class MetaLearner():
 
         #self.d_W1 = ((self.d_W1 - (tf.reduce_max(self.d_W1) + tf.reduce_min(self.d_W1))/2)/(tf.reduce_max(self.d_W1) - tf.reduce_min(self.d_W1)))*2
         #self.d_W2 = ((self.d_W2 - (tf.reduce_max(self.d_W2) + tf.reduce_min(self.d_W2))/2)/(tf.reduce_max(self.d_W2) - tf.reduce_min(self.d_W2)))*2
-        self.d_W3 = ((self.d_W3 - (tf.reduce_max(self.d_W3) + tf.reduce_min(self.d_W3))/2)/(tf.reduce_max(self.d_W3) - tf.reduce_min(self.d_W3)))*2
+        #self.d_W3 = ((self.d_W3 - (tf.reduce_max(self.d_W3) + tf.reduce_min(self.d_W3))/2)/(tf.reduce_max(self.d_W3) - tf.reduce_min(self.d_W3)))*2
 
         #self.d_W1 = tf.reshape(self.d_W1, [self.observation_dim, self.decoder_len])
         #self.d_W2 = tf.reshape(self.d_W2, [self.decoder_len, self.decoder_len])
@@ -275,11 +271,12 @@ class MetaLearner():
         self.d_B3 = tf.reshape(self.Decoder(decoder_out_dim = self.action_dim, scope = "B3"), [self.action_dim])
         #self.d_B1 = ((self.d_B1 - (tf.reduce_max(self.d_B1) + tf.reduce_min(self.d_B1))/2)/(tf.reduce_max(self.d_B1) - tf.reduce_min(self.d_B1)))*2
         #self.d_B2 = ((self.d_B2 - (tf.reduce_max(self.d_B2) + tf.reduce_min(self.d_B2))/2)/(tf.reduce_max(self.d_B2) - tf.reduce_min(self.d_B2)))*2
-        self.d_B3 = ((self.d_B3 - (tf.reduce_max(self.d_B3) + tf.reduce_min(self.d_B3))/2)/(tf.reduce_max(self.d_B3) - tf.reduce_min(self.d_B3)))*2
+        #self.d_B3 = ((self.d_B3 - (tf.reduce_max(self.d_B3) + tf.reduce_min(self.d_B3))/2)/(tf.reduce_max(self.d_B3) - tf.reduce_min(self.d_B3)))*2
 
         # exploit policy
         self.build_policy_exploit()
         #self.d = [self.d_W1, self.d_B1, self.d_W2, self.d_B2, self.d_W3, self.d_B3]
+        self.exploit_policy_loss = -tf.reduce_sum(self.exploit_logprob * self.advantage_placeholder_exploit)
         self.d = [self.d_W3, self.d_B3]
         self.gradients_exploit = tf.gradients(self.exploit_policy_loss,self.d)
 
@@ -299,38 +296,44 @@ class MetaLearner():
 
     def train_step(self):
 
-        explore_paths, total_rewards = self.sample_paths_explore(self.env)
+        explore_paths, explore_rewards = self.sample_paths_explore(self.env)
         observations_explore = np.concatenate([path["observation"] for path in explore_paths])
         actions_explore = np.concatenate([path["action"] for path in explore_paths])
         rewards_explore = np.concatenate([path["reward"] for path in explore_paths])
-        returns_explore = a.get_returns(explore_paths)
-        print("average reward explore", sum(total_rewards) / 200)
+        returns_explore = self.get_returns(explore_paths)
+        #print(returns_explore)
+        print("average reward explore", np.sum(explore_rewards)/num_traj, len(explore_rewards))
 
         baseline_explore = self.sess.run(self.baseline, {self.observation_placeholder_explore:observations_explore})
         adv = returns_explore - np.squeeze(baseline_explore)
         advantages_explore = (adv - np.mean(adv))/np.std(adv)
-        self.sess.run(self.update_baseline_op, {self.observation_placeholder_explore:observations_explore,
-                                      self.baseline_target_placeholder : advantages_explore})
 
-        self.sess.run(self.input_train_op, feed_dict={
-                        self.observation_placeholder_explore : observations_explore,
-                        self.action_placeholder_explore : actions_explore,
-                        self.advantage_placeholder_explore : advantages_explore})
+
+        #print("baseline", np.array(baseline_explore).shape)
+        #print("returns_explore",np.array(returns_explore).shape)
+        # update the baseline
+
+#         self.sess.run(self.update_baseline_op, {self.observation_placeholder_explore:observations_explore,
+#                                        self.baseline_target_placeholder : returns_explore})
+
+
+
 
         # calculate explore gradients
-#         grads_explore = self.sess.run(self.gradients_explore, feed_dict={
-#                     self.observation_placeholder_explore : observations_explore,
-#                     self.action_placeholder_explore : actions_explore,
-#                     self.advantage_placeholder_explore : advantages_explore})
-
+        grads_explore = self.sess.run(self.gradients_explore, feed_dict={
+                    self.observation_placeholder_explore : observations_explore,
+                    self.action_placeholder_explore : actions_explore,
+                    self.advantage_placeholder_explore : returns_explore})
+        #print("explore",grads_explore )
         # form trajectory matrix
         M = self.stack_trajectories(explore_paths)
+
+        #print(M.shape)
 
         #encoder LSTM
         Z = self.sess.run(self.Z, feed_dict = {self.encoder_input_placeholder: M,self.sequence_length_placeholder: self.length })
         Z = np.reshape(Z,[1,len(Z)])
-
-        print(Z)
+        #print(Z)
         # sample paths
         exploit_paths, exploit_rewards = self.sample_paths_exploit(self.env,Z)
         # get observations, actions and rewards
@@ -338,17 +341,18 @@ class MetaLearner():
         actions_exploit = np.concatenate([path["action"] for path in exploit_paths])
         rewards_exploit = np.concatenate([path["reward"] for path in exploit_paths])
         returns_exploit = self.get_returns(exploit_paths)
-        print("average reward exploit", sum(exploit_rewards) / 200)
+        print("average reward exploit", np.sum(exploit_rewards) / num_traj, len(exploit_rewards))
 
         # exploit grads
-#         grads_exploit = self.sess.run(self.gradients_exploit,feed_dict={
-#                     self.observation_placeholder_exploit : observations_exploit,
-#                     self.action_placeholder_exploit : actions_exploit,
-#                     self.advantage_placeholder_exploit : returns_exploit,
-#                     self.decoder_input_placeholder: Z})
+        grads_exploit = self.sess.run(self.gradients_exploit,feed_dict={
+                    self.observation_placeholder_exploit : observations_exploit,
+                    self.action_placeholder_exploit : actions_exploit,
+                    self.advantage_placeholder_exploit : returns_exploit,
+                    self.decoder_input_placeholder: Z})
         #print("explore", grads_explore)
+        #
         #print("exploit", grads_exploit)
-        print()
+        #print()
 
         #train encoder and decoder network
         self.sess.run(self.output_train_op, feed_dict={
@@ -365,18 +369,22 @@ class MetaLearner():
 #             advantage_explore = advantage_explore + np.matmul(l1.flatten(), l2.flatten())
         #advantage_explore = 100
         # train input policy
-#         self.sess.run(self.input_train_op, feed_dict={
-#                         self.observation_placeholder_explore : observations_explore,
-#                         self.action_placeholder_explore : actions_explore,
-#                         self.advantage_placeholder_explore : returns_explore})
+
+        self.sess.run(self.input_train_op, feed_dict={
+                        self.observation_placeholder_explore : observations_explore,
+                        self.action_placeholder_explore : actions_explore,
+                        self.advantage_placeholder_explore : returns_explore})
 
     def train(self):
-        self.ConstructGraph()
+
         self.initialize()
         num_epochs = 100
         for epoch in range(num_epochs):
             print("epoch number: ", epoch)
             self.train_step()
+
+
+
 
 
 a = MetaLearner(env, max_ep_len, num_traj, latent_size)
