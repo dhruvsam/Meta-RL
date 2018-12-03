@@ -1,0 +1,18 @@
+test_horizon: 30
+lr: 0.001
+x_dim: 14
+y_dim: 11
+sigma_eps: [0.00001, 0.00001, 0.00001, 0.0000001, 0.000001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001 ]
+
+data_horizon: 20
+meta_batch_size: 20
+
+nn_layers: [128,128,64]
+activation: 'tanh'
+
+# hopper params:
+torso_min: 0.02
+torso_max: 0.08
+
+friction_min: 1.7
+friction_max: 2.3
