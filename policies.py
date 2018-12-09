@@ -77,6 +77,7 @@ class GibbsPolicy(StochasticPolicy):
         self.assert_op  = tf.Assert(tf.reduce_all(self.kl_n >= -1e-4), [self.kl_n])
         with tf.control_dependencies([self.assert_op]):
             self.kl_n = tf.identity(self.kl_n)
+            
         self.kl  = tf.reduce_mean(self.kl_n)
         self.ent = tf.reduce_mean(tf.reduce_sum( -self.p_na * self.logp_na, axis=1))
 
@@ -115,7 +116,7 @@ class GaussianPolicy(StochasticPolicy):
     """ A policy where the action is to be sampled based on sampling a Gaussian;
     this is for continuous control. """
 
-    def __init__(self, sess, ob_dim, ac_dim):
+    def __init__(self,num_layers, size ,sess, ob_dim, ac_dim):
         super().__init__(sess, ob_dim, ac_dim)
 
         # Placeholders for our inputs. Note that actions are floats.
@@ -133,15 +134,16 @@ class GaussianPolicy(StochasticPolicy):
 
         # The policy network and the logits, which are the mean of a Gaussian.
         # Then don't forget to make an "old" version of that for KL divergences.
-        self.hidden1 = layers.fully_connected(self.ob_no,
-                num_outputs=32,
+        Input = self.ob_no
+        for i in range(num_layers-1):
+            out = layers.fully_connected(Input,
+                num_outputs=size,
                 weights_initializer=layers.xavier_initializer(uniform=True),
                 activation_fn=tf.nn.relu)
-        self.hidden2 = layers.fully_connected(self.hidden1,
-                num_outputs=32,
-                weights_initializer=layers.xavier_initializer(uniform=True),
-                activation_fn=tf.nn.relu)
-        self.mean_na = layers.fully_connected(self.hidden2,
+            Input = out
+
+
+        self.mean_na = layers.fully_connected(Input,
                 num_outputs=ac_dim,
                 weights_initializer=layers.xavier_initializer(uniform=True),
                 activation_fn=None)
