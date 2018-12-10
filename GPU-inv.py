@@ -1,3 +1,46 @@
+# Include Libraries
+import numpy as np
+import tensorflow as tf
+import gym
+import tensorflow.contrib.layers as layers
+# from mujoco_py import load_model_from_xml, MjSim, MjViewer
+import policies
+import value_functions as vfuncs
+import utils_pg as utils
+
+# Environment setup
+#env = "CartPole-v0"
+env="InvertedPendulum-v1"
+
+#env = "HalfCheetah-v2"
+
+# discrete = isinstance(env.action_space, gym.spaces.Discrete)
+# observation_dim = env.observation_space.shape[0]
+# action_dim = env.action_space.n if discrete else env.action_space.shape[0]
+max_ep_len = 1000
+num_traj = 10
+#traj_length = max_ep_len*(observation_dim + 2)
+latent_size = 25
+use_baseline = True
+
+
+
+# Feed forward network (multi-layer-perceptron, or mlp)
+
+def build_mlp(mlp_input,output_size,scope,n_layers,size,output_activation=None):
+    '''
+    Build a feed forward network
+    '''
+    Input = mlp_input
+    with tf.variable_scope(scope):
+        # Dense Layers
+        for i in range(n_layers-1):
+            dense = tf.layers.dense(inputs = Input, units = size, activation = tf.nn.relu, bias_initializer=tf.constant_initializer(1.0))
+            Input = dense
+        # Fully Connected Layer
+        out = layers.fully_connected(inputs = Input, num_outputs = output_size, activation_fn=output_activation)
+    return out
+
 class MetaLearner():
     def __init__(self, env, max_ep_len, num_traj,latent_size ):
         self.env = gym.make(env)
