@@ -287,53 +287,53 @@ class MetaLearner():
 
         self.sess = tf.Session()
 
-        self.vf = vfuncs.NnValueFunction(num_layers = self.num_layers,size = self.layers_size,session=self.sess,ob_dim=self.observation_dim)
-        self.policyfn = policies.GaussianPolicy(self.num_layers,self.layers_size,self.sess,self.observation_dim, self.action_dim)
-
-        self.add_placeholders()
-
-
-         #Encoder LSTM
-        self.LSTMEncoder()
-
-
-        #decoder weights
-        self.d_W1 = self.Decoder(scope = "W1", decoder_out_dim = self.observation_dim*self.decoder_len)
-
-        self.d_W2 = self.Decoder(scope = "W2", decoder_out_dim = self.decoder_len*self.decoder_len)
-        #self.d_W3 = self.Decoder(scope = "W3", decoder_out_dim = self.decoder_len*action_dim)
-        self.d_W3 = self.Decoder(scope = "W3", decoder_out_dim = self.decoder_len*self.action_dim)
-
-        #self.d_W1 = ((self.d_W1 - (tf.reduce_max(self.d_W1) + tf.reduce_min(self.d_W1))/2)/(tf.reduce_max(self.d_W1) - tf.reduce_min(self.d_W1)))*2
-        #self.d_W2 = ((self.d_W2 - (tf.reduce_max(self.d_W2) + tf.reduce_min(self.d_W2))/2)/(tf.reduce_max(self.d_W2) - tf.reduce_min(self.d_W2)))*2
-        #self.d_W3 = ((self.d_W3 - (tf.reduce_max(self.d_W3) + tf.reduce_min(self.d_W3))/2)/(tf.reduce_max(self.d_W3) - tf.reduce_min(self.d_W3)))*2
-
-        self.d_W1 = tf.reshape(self.d_W1, [self.observation_dim, self.decoder_len])
-        self.d_W2 = tf.reshape(self.d_W2, [self.decoder_len, self.decoder_len])
-        #self.d_W3 = tf.reshape(self.d_W3, [self.decoder_len, self.action_dim])
-        self.d_W3 = tf.reshape(self.d_W3, [self.decoder_len, self.action_dim])
-
-        # decoder output bias
-        self.d_B1 = tf.reshape(self.Decoder(decoder_out_dim = self.decoder_len, scope = "B1"), [self.decoder_len])
-        self.d_B2 = tf.reshape(self.Decoder(decoder_out_dim = self.decoder_len, scope = "B2"), [self.decoder_len])
-        self.d_B3 = tf.reshape(self.Decoder(decoder_out_dim = self.action_dim, scope = "B3"), [self.action_dim])
-        #self.d_B1 = ((self.d_B1 - (tf.reduce_max(self.d_B1) + tf.reduce_min(self.d_B1))/2)/(tf.reduce_max(self.d_B1) - tf.reduce_min(self.d_B1)))*2
-        #self.d_B2 = ((self.d_B2 - (tf.reduce_max(self.d_B2) + tf.reduce_min(self.d_B2))/2)/(tf.reduce_max(self.d_B2) - tf.reduce_min(self.d_B2)))*2
-
-
-        # exploit policy
-        self.build_policy_exploit()
-        #self.d = [self.d_W1, self.d_B1, self.d_W2, self.d_B2, self.d_W3, self.d_B3]
-        self.exploit_policy_loss = -tf.reduce_sum(self.exploit_logprob * self.advantage_placeholder_exploit)
-        self.d = [self.d_W3, self.d_B3]
-        self.gradients_exploit = tf.gradients(self.exploit_policy_loss,self.d)
-
-        # train encoder and decoder
-        adam_optimizer_exploit =  tf.train.AdamOptimizer(self.lr*0.3)
-        self.output_train_op = adam_optimizer_exploit.minimize(self.exploit_policy_loss)
-        # train original network
-#         adam_optimizer_explore = tf.train.AdamOptimizer(self.lr)
-#         self.input_train_op = adam_optimizer_explore.minimize(self.explore_policy_loss)
+#         self.vf = vfuncs.NnValueFunction(num_layers = self.num_layers,size = self.layers_size,session=self.sess,ob_dim=self.observation_dim)
+#         self.policyfn = policies.GaussianPolicy(self.num_layers,self.layers_size,self.sess,self.observation_dim, self.action_dim)
+#
+#         self.add_placeholders()
+#
+#
+#          #Encoder LSTM
+#         self.LSTMEncoder()
+#
+#
+#         #decoder weights
+#         self.d_W1 = self.Decoder(scope = "W1", decoder_out_dim = self.observation_dim*self.decoder_len)
+#
+#         self.d_W2 = self.Decoder(scope = "W2", decoder_out_dim = self.decoder_len*self.decoder_len)
+#         #self.d_W3 = self.Decoder(scope = "W3", decoder_out_dim = self.decoder_len*action_dim)
+#         self.d_W3 = self.Decoder(scope = "W3", decoder_out_dim = self.decoder_len*self.action_dim)
+#
+#         #self.d_W1 = ((self.d_W1 - (tf.reduce_max(self.d_W1) + tf.reduce_min(self.d_W1))/2)/(tf.reduce_max(self.d_W1) - tf.reduce_min(self.d_W1)))*2
+#         #self.d_W2 = ((self.d_W2 - (tf.reduce_max(self.d_W2) + tf.reduce_min(self.d_W2))/2)/(tf.reduce_max(self.d_W2) - tf.reduce_min(self.d_W2)))*2
+#         #self.d_W3 = ((self.d_W3 - (tf.reduce_max(self.d_W3) + tf.reduce_min(self.d_W3))/2)/(tf.reduce_max(self.d_W3) - tf.reduce_min(self.d_W3)))*2
+#
+#         self.d_W1 = tf.reshape(self.d_W1, [self.observation_dim, self.decoder_len])
+#         self.d_W2 = tf.reshape(self.d_W2, [self.decoder_len, self.decoder_len])
+#         #self.d_W3 = tf.reshape(self.d_W3, [self.decoder_len, self.action_dim])
+#         self.d_W3 = tf.reshape(self.d_W3, [self.decoder_len, self.action_dim])
+#
+#         # decoder output bias
+#         self.d_B1 = tf.reshape(self.Decoder(decoder_out_dim = self.decoder_len, scope = "B1"), [self.decoder_len])
+#         self.d_B2 = tf.reshape(self.Decoder(decoder_out_dim = self.decoder_len, scope = "B2"), [self.decoder_len])
+#         self.d_B3 = tf.reshape(self.Decoder(decoder_out_dim = self.action_dim, scope = "B3"), [self.action_dim])
+#         #self.d_B1 = ((self.d_B1 - (tf.reduce_max(self.d_B1) + tf.reduce_min(self.d_B1))/2)/(tf.reduce_max(self.d_B1) - tf.reduce_min(self.d_B1)))*2
+#         #self.d_B2 = ((self.d_B2 - (tf.reduce_max(self.d_B2) + tf.reduce_min(self.d_B2))/2)/(tf.reduce_max(self.d_B2) - tf.reduce_min(self.d_B2)))*2
+#
+#
+#         # exploit policy
+#         self.build_policy_exploit()
+#         #self.d = [self.d_W1, self.d_B1, self.d_W2, self.d_B2, self.d_W3, self.d_B3]
+#         self.exploit_policy_loss = -tf.reduce_sum(self.exploit_logprob * self.advantage_placeholder_exploit)
+#         self.d = [self.d_W3, self.d_B3]
+#         self.gradients_exploit = tf.gradients(self.exploit_policy_loss,self.d)
+#
+#         # train encoder and decoder
+#         adam_optimizer_exploit =  tf.train.AdamOptimizer(self.lr*0.3)
+#         self.output_train_op = adam_optimizer_exploit.minimize(self.exploit_policy_loss)
+#         # train original network
+# #         adam_optimizer_explore = tf.train.AdamOptimizer(self.lr)
+# #         self.input_train_op = adam_optimizer_explore.minimize(self.explore_policy_loss)
         init = tf.global_variables_initializer()
         self.sess.run(init)
 
