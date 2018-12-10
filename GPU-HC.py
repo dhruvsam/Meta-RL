@@ -455,7 +455,7 @@ class MetaLearner():
             num_epochs = 100
             for epoch in range(num_epochs):
                 print("epoch number: ", epoch)
-                self.train_step()
+                # self.train_step()
 
 a = MetaLearner(env, max_ep_len, num_traj, latent_size)
 a.train()
